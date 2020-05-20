@@ -1,92 +1,65 @@
 #Service Status Check for Vault Server
 $HostName = "$env:computername"
-$PORT = 51444
+$SYSLOGPORT = 51444
 $SYSLOGSERVER="10.0.0.2"
-$Version = "1.0.0000"
+$Version = "2.0.0000"
 $Date = Get-Date
 $DateTime = $DATE.ToString("yyyy-MM-ddTHH:mm:ssZ")
+$IsHACluster = $false
 
-#PrivateArk Server Service Check
-$MonitorType = "ApplicationMonitor"
-$ServiceName = Get-Service "PrivateArk Server" | Format-Table -HideTableHeaders Name | Out-String
-$ServiceStatus = Get-Service "PrivateArk Server" | Format-Table -HideTableHeaders Status | Out-String
-    If ($ServiceStatus -like "*Running*") { $ServiceStatusNumeric = 1 } else { $ServiceStatusNumeric = 0 }
-$SoftwareName = Get-ItemProperty HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* | Where-Object DisplayName -like "*CyberArk Digital Vault*" | Select-Object DisplayName | Select -first 1 | Format-Table -HideTableHeaders | Out-String
-$SoftwareVersion = Get-ItemProperty HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* | Where-Object DisplayName -like "*CyberArk Digital Vault*" | Select-Object DisplayVersion | Select -first 1 | Format-Table -HideTableHeaders | Out-String
-$syslogoutput = "$DateTime CEF:0|CyberArk|$MonitorType|$Version|$HostName|$ServiceName|$ServiceStatus|$ServiceStatusNumeric|$SoftwareName|$SoftwareVersion"
-#cleanup command to remove new lines and carriage returns
-$syslogoutputclean = $syslogoutput -replace "`n|`r"
-$syslogoutputclean | ConvertTo-Json
-#send syslog to SIEM
-$UDPCLient = New-Object System.Net.Sockets.UdpClient
-$UDPCLient.Connect($SYSLOGSERVER, $PORT)
-$Encoding = [System.Text.Encoding]::ASCII
-$ByteSyslogMessage = $Encoding.GetBytes(''+$syslogoutputclean+'')
-$UDPCLient.Send($ByteSyslogMessage, $ByteSyslogMessage.Length)
+function SendSyslogMessage {
+    param (
+        [Parameter(Mandatory=$true)] [String] $Message,
+        [Parameter(Mandatory=$false)] [String] $Server = $SYSLOGSERVER,
+        [Parameter(Mandatory=$false)] [String] $Port = $SYSLOGPORT
+    )
 
-#PrivateArk Database Service Check
-$MonitorType = "ApplicationMonitor"
-$ServiceName = Get-Service "PrivateArk Database" | Format-Table -HideTableHeaders Name | Out-String
-$ServiceStatus = Get-Service "PrivateArk Database" | Format-Table -HideTableHeaders Status | Out-String
-    If ($ServiceStatus -like "*Running*") { $ServiceStatusNumeric = 1 } else { $ServiceStatusNumeric = 0 }
-$syslogoutput = "$DateTime CEF:0|CyberArk|$MonitorType|$Version|$HostName|$ServiceName|$ServiceStatus|$ServiceStatusNumeric|"
-#cleanup command to remove new lines and carriage returns
-$syslogoutputclean = $syslogoutput -replace "`n|`r"
-$syslogoutputclean | ConvertTo-Json
-#send syslog to SIEM
-$UDPCLient = New-Object System.Net.Sockets.UdpClient
-$UDPCLient.Connect($SYSLOGSERVER, $PORT)
-$Encoding = [System.Text.Encoding]::ASCII
-$ByteSyslogMessage = $Encoding.GetBytes(''+$syslogoutputclean+'')
-$UDPCLient.Send($ByteSyslogMessage, $ByteSyslogMessage.Length)
+    # Cleanup Syslog output to remove new lines and carriage returns
+    $MessageClean = $Message -replace "`n|`r"
+    
+    # Outputs the final message, useful for debugging
+    $MessageClean | ConvertTo-Json
 
-#CyberArk Logic Container Service Check
-$MonitorType = "ApplicationMonitor"
-$ServiceName = Get-Service "CyberArk Logic Container" | Format-Table -HideTableHeaders Name | Out-String
-$ServiceStatus = Get-Service "CyberArk Logic Container" | Format-Table -HideTableHeaders Status | Out-String
-    If ($ServiceStatus -like "*Running*") { $ServiceStatusNumeric = 1 } else { $ServiceStatusNumeric = 0 }
-$syslogoutput = "$DateTime CEF:0|CyberArk|$MonitorType|$Version|$HostName|$ServiceName|$ServiceStatus|$ServiceStatusNumeric|"
-#cleanup command to remove new lines and carriage returns
-$syslogoutputclean = $syslogoutput -replace "`n|`r"
-$syslogoutputclean | ConvertTo-Json
-#send syslog to SIEM
-$UDPCLient = New-Object System.Net.Sockets.UdpClient
-$UDPCLient.Connect($SYSLOGSERVER, $PORT)
-$Encoding = [System.Text.Encoding]::ASCII
-$ByteSyslogMessage = $Encoding.GetBytes(''+$syslogoutputclean+'')
-$UDPCLient.Send($ByteSyslogMessage, $ByteSyslogMessage.Length)
+    # Send Syslog message to SIEM
+    $UDPCLient = New-Object System.Net.Sockets.UdpClient
+    $UDPCLient.Connect($Server, $Port)
+    $Encoding = [System.Text.Encoding]::ASCII
+    $ByteSyslogMessage = $Encoding.GetBytes(''+$MessageClean+'')
+    $UDPCLient.Send($ByteSyslogMessage, $ByteSyslogMessage.Length)
+}
 
-#PrivateArk Remote Control Agent Service Check
-$MonitorType = "ApplicationMonitor"
-$ServiceName = Get-Service "PrivateArk Remote Control Agent" | Format-Table -HideTableHeaders Name | Out-String
-$ServiceStatus = Get-Service "PrivateArk Remote Control Agent" | Format-Table -HideTableHeaders Status | Out-String
+function CheckServiceStatus {
+    param (
+        [Parameter(Mandatory=$true)] [String] $Service
+    )
+    $ServiceStatus = Get-Service $Service | Format-Table -HideTableHeaders Status | Out-String
     If ($ServiceStatus -like "*Running*") { $ServiceStatusNumeric = 1 } else { $ServiceStatusNumeric = 0 }
-$syslogoutput = "$DateTime CEF:0|CyberArk|$MonitorType|$Version|$HostName|$ServiceName|$ServiceStatus|$ServiceStatusNumeric|"
-#cleanup command to remove new lines and carriage returns
-$syslogoutputclean = $syslogoutput -replace "`n|`r"
-$syslogoutputclean | ConvertTo-Json
-#send syslog to SIEM
-$UDPCLient = New-Object System.Net.Sockets.UdpClient
-$UDPCLient.Connect($SYSLOGSERVER, $PORT)
-$Encoding = [System.Text.Encoding]::ASCII
-$ByteSyslogMessage = $Encoding.GetBytes(''+$syslogoutputclean+'')
-$UDPCLient.Send($ByteSyslogMessage, $ByteSyslogMessage.Length)
 
-#Cyber-Ark Event Notification Engine Service Check
+    return @($ServiceStatus,$ServiceStatusNumeric)
+}
+
+#PrivateArk Server Service Check - Separate to provide version details
 $MonitorType = "ApplicationMonitor"
-$ServiceName = Get-Service "Cyber-Ark Event Notification Engine" | Format-Table -HideTableHeaders Name | Out-String
-$ServiceStatus = Get-Service "Cyber-Ark Event Notification Engine" | Format-Table -HideTableHeaders Status | Out-String
-    If ($ServiceStatus -like "*Running*") { $ServiceStatusNumeric = 1 } else { $ServiceStatusNumeric = 0 }
-$syslogoutput = "$DateTime CEF:0|CyberArk|$MonitorType|$Version|$HostName|$ServiceName|$ServiceStatus|$ServiceStatusNumeric|"
-#cleanup command to remove new lines and carriage returns
-$syslogoutputclean = $syslogoutput -replace "`n|`r"
-$syslogoutputclean | ConvertTo-Json
-#send syslog to SIEM
-$UDPCLient = New-Object System.Net.Sockets.UdpClient
-$UDPCLient.Connect($SYSLOGSERVER, $PORT)
-$Encoding = [System.Text.Encoding]::ASCII
-$ByteSyslogMessage = $Encoding.GetBytes(''+$syslogoutputclean+'')
-$UDPCLient.Send($ByteSyslogMessage, $ByteSyslogMessage.Length)
+$ServiceName = "PrivateArk Server"
+$status = CheckServiceStatus -Service $ServiceName
+$SoftwareName = Get-ItemProperty HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* | Where-Object DisplayName -like "*CyberArk Digital Vault*" | Select-Object DisplayName | Select-Object -first 1 | Format-Table -HideTableHeaders | Out-String
+$SoftwareVersion = Get-ItemProperty HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* | Where-Object DisplayName -like "*CyberArk Digital Vault*" | Select-Object DisplayVersion | Select-Object -first 1 | Format-Table -HideTableHeaders | Out-String
+SendSyslogMessage -Message "$DateTime CEF:0|CyberArk|$MonitorType|$Version|$HostName|$ServiceName|$($status[0])|$($status[1])|$SoftwareName|$SoftwareVersion"
+
+$Services = @("PrivateArk Server","PrivateArk Database","CyberArk Logic Container","PrivateArk Remote Control Agent","Cyber-Ark Event Notification Engine")
+
+$MonitorType = "ApplicationMonitor"
+foreach ($Service in $Services) {
+    $status = CheckServiceStatus -Service $Service
+    SendSyslogMessage -Message "$DateTime CEF:0|CyberArk|$MonitorType|$Version|$HostName|$Service|$($status[0])|$($status[1])|"
+}
+
+$MonitorType = "ApplicationMonitor"
+if ($IsHACluster) {
+    $Service = "CyberArk Cluster Vault Manager"
+    $status = CheckServiceStatus -Service "CyberArk Cluster Vault Manager"
+    SendSyslogMessage -Message "$DateTime CEF:0|CyberArk|$MonitorType|$Version|$HostName|$Service|$($status[0])|$($status[1])|"
+}
 
 #OS System Information
 $MonitorType = "OSMonitor"
@@ -94,29 +67,17 @@ $OSName = (Get-WmiObject Win32_OperatingSystem).Caption | Out-String
 $OSVersion = (Get-WmiObject Win32_OperatingSystem).Version | Out-String
 $OSServPack = (Get-WmiObject Win32_OperatingSystem).ServicePackMajorVersion | Out-String
 $OSArchitecture = (Get-WmiObject Win32_OperatingSystem).OSArchitecture | Out-String
-$syslogoutput = "$DateTime CEF:0|CyberArk|$MonitorType|$Version|$HostName|$OSName|$OSVersion|$OSServPack|$OSArchitecture"
-#cleanup command to remove new lines and carriage returns
-$syslogoutputclean = $syslogoutput -replace "`n|`r"
-$syslogoutputclean | ConvertTo-Json
-#send syslog to SIEM
-$UDPCLient = New-Object System.Net.Sockets.UdpClient
-$UDPCLient.Connect($SYSLOGSERVER, $PORT)
-$Encoding = [System.Text.Encoding]::ASCII
-$ByteSyslogMessage = $Encoding.GetBytes(''+$syslogoutputclean+'')
-$UDPCLient.Send($ByteSyslogMessage, $ByteSyslogMessage.Length)
+SendSyslogMessage -Message "$DateTime CEF:0|CyberArk|$MonitorType|$Version|$HostName|$OSName|$OSVersion|$OSServPack|$OSArchitecture"
 
-#Admin Logon Information
+#Admin Logon Information - Lists all Vault Local OS user logons
 $MonitorType = "LogonMonitor"
-$SID = (Get-WMIObject -Class Win32_UserAccount -Filter {LocalAccount = "True" and Name = "Administrator"} | Select * | Format-Table -HideTableHeaders SID | Out-String)
-$LastLogon = (net user Administrator | findstr /B /C:"Last logon")
-$LastLogon = $LastLogon -replace "Last logon                   "
-$syslogoutput = "$DateTime CEF:0|CyberArk|$MonitorType|$Version|$HostName|Administrator|$SID|$LastLogon"
-#cleanup command to remove new lines and carriage returns
-$syslogoutputclean = $syslogoutput -replace "`n|`r"
-$syslogoutputclean | ConvertTo-Json
-#send syslog to SIEM
-$UDPCLient = New-Object System.Net.Sockets.UdpClient
-$UDPCLient.Connect($SYSLOGSERVER, $PORT)
-$Encoding = [System.Text.Encoding]::ASCII
-$ByteSyslogMessage = $Encoding.GetBytes(''+$syslogoutputclean+'')
-$UDPCLient.Send($ByteSyslogMessage, $ByteSyslogMessage.Length)
+$users = (Get-WMIObject -Class Win32_UserAccount -Filter {LocalAccount = "True" and Disabled = "False"} |Select-Object * |Format-Table -HideTableHeaders Name |Out-String).Trim().Split([Environment]::NewLine,[System.StringSplitOptions]::RemoveEmptyEntries)
+foreach ($user in $users) {
+    $user = $user.Trim()
+    # Ignore the LogicContainerUser
+    if($user.Contains("LogicContainerUser")){break}
+    $SID = (Get-WMIObject -Class Win32_UserAccount -Filter "Name = '$user'" | Select-Object * | Format-Table -HideTableHeaders SID | Out-String)
+    $LastLogon = (net user $($user) | findstr /B /C:"Last logon")
+    $LastLogon = $LastLogon -replace "Last logon"
+    SendSyslogMessage -Message "$DateTime CEF:0|CyberArk|$MonitorType|$Version|$HostName|$user|$SID|$LastLogon"
+}
