@@ -33,10 +33,15 @@ function CheckServiceStatus {
         [Parameter(Mandatory=$true)] [String] $Service
     )
     $ServiceStatus = Get-Service $Service | Format-Table -HideTableHeaders Status | Out-String
-    $ServiceStartTime = (Get-EventLog -LogName "System" -Source "Service Control Manager" -EntryType "Information" -Message "*$Service*running*" -Newest 1).TimeGenerated.ToString("yyyy-MM-ddTHH:mm:ssZ");
-    $ServiceStopTime = (Get-EventLog -LogName "System" -Source "Service Control Manager" -EntryType "Information" -Message "*$Service*stopped*" -Newest 1).TimeGenerated.ToString("yyyy-MM-ddTHH:mm:ssZ");
     If ($ServiceStatus -like "*Running*") { $ServiceStatusNumeric = 1 } else { $ServiceStatusNumeric = 0 }
 
+    try {
+        $ServiceStartTime = (Get-EventLog -LogName "System" -Source "Service Control Manager" -EntryType "Information" -Message "*$Service*running*" -Newest 1).TimeGenerated.ToString("yyyy-MM-ddTHH:mm:ssZ");
+        $ServiceStopTime = (Get-EventLog -LogName "System" -Source "Service Control Manager" -EntryType "Information" -Message "*$Service*stopped*" -Newest 1).TimeGenerated.ToString("yyyy-MM-ddTHH:mm:ssZ");
+    }catch {
+        if (!$ServiceStartTime) {$ServiceStartTime = ""}
+        if (!$ServiceStopTime) {$ServiceStopTime = ""}
+    }
     return @($ServiceStatus,$ServiceStatusNumeric,$ServiceStartTime,$ServiceStopTime)
 }
 
