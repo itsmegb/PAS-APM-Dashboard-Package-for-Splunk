@@ -32,7 +32,7 @@
       <title>CyberArk Software Version Information</title>
       <table>
         <search>
-          <query>host="10.0.1.10" OR host="10.0.1.12" Product="ApplicationMonitor" 
+          <query>host="10.0.1.10" OR host="10.0.1.12" Product="ApplicationMonitor" Info2="PrivateArk Server"
 | rename host as "IP Address"
 | rename Info1 as "Host" 
 | rename Info5 as "Software Name" 
