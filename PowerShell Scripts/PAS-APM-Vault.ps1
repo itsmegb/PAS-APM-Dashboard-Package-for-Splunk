@@ -33,9 +33,11 @@ function CheckServiceStatus {
         [Parameter(Mandatory=$true)] [String] $Service
     )
     $ServiceStatus = Get-Service $Service | Format-Table -HideTableHeaders Status | Out-String
+    $ServiceStartTime = (Get-EventLog -LogName "System" -Source "Service Control Manager" -EntryType "Information" -Message "*$Service*running*" -Newest 1).TimeGenerated.ToString("yyyy-MM-ddTHH:mm:ssZ");
+    $ServiceStopTime = (Get-EventLog -LogName "System" -Source "Service Control Manager" -EntryType "Information" -Message "*$Service*stopped*" -Newest 1).TimeGenerated.ToString("yyyy-MM-ddTHH:mm:ssZ");
     If ($ServiceStatus -like "*Running*") { $ServiceStatusNumeric = 1 } else { $ServiceStatusNumeric = 0 }
 
-    return @($ServiceStatus,$ServiceStatusNumeric)
+    return @($ServiceStatus,$ServiceStatusNumeric,$ServiceStartTime,$ServiceStopTime)
 }
 
 #PrivateArk Server Service Check - Separate to provide version details
@@ -44,21 +46,21 @@ $ServiceName = "PrivateArk Server"
 $status = CheckServiceStatus -Service $ServiceName
 $SoftwareName = Get-ItemProperty HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* | Where-Object DisplayName -like "*CyberArk Digital Vault*" | Select-Object DisplayName | Select-Object -first 1 | Format-Table -HideTableHeaders | Out-String
 $SoftwareVersion = Get-ItemProperty HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* | Where-Object DisplayName -like "*CyberArk Digital Vault*" | Select-Object DisplayVersion | Select-Object -first 1 | Format-Table -HideTableHeaders | Out-String
-SendSyslogMessage -Message "$DateTime CEF:0|CyberArk|$MonitorType|$Version|$HostName|$ServiceName|$($status[0])|$($status[1])|$SoftwareName|$SoftwareVersion"
+SendSyslogMessage -Message "$DateTime CEF:0|CyberArk|$MonitorType|$Version|$HostName|$ServiceName|$($status[0])|$($status[1])|$SoftwareName|$SoftwareVersion|$($status[2])|$($status[3])"
 
 $Services = @("PrivateArk Database","CyberArk Logic Container","PrivateArk Remote Control Agent","Cyber-Ark Event Notification Engine")
 
 $MonitorType = "ApplicationMonitor"
 foreach ($Service in $Services) {
     $status = CheckServiceStatus -Service $Service
-    SendSyslogMessage -Message "$DateTime CEF:0|CyberArk|$MonitorType|$Version|$HostName|$Service|$($status[0])|$($status[1])|"
+    SendSyslogMessage -Message "$DateTime CEF:0|CyberArk|$MonitorType|$Version|$HostName|$Service|$($status[0])|$($status[1])|$($status[2])|$($status[3])"
 }
 
 $MonitorType = "ApplicationMonitor"
 if ($IsHACluster) {
     $Service = "CyberArk Cluster Vault Manager"
     $status = CheckServiceStatus -Service "CyberArk Cluster Vault Manager"
-    SendSyslogMessage -Message "$DateTime CEF:0|CyberArk|$MonitorType|$Version|$HostName|$Service|$($status[0])|$($status[1])|"
+    SendSyslogMessage -Message "$DateTime CEF:0|CyberArk|$MonitorType|$Version|$HostName|$Service|$($status[0])|$($status[1])|$($status[2])|$($status[3])"
 }
 
 #OS System Information
