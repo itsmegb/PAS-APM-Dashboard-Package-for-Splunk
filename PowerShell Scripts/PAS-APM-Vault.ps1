@@ -46,7 +46,7 @@ $SoftwareName = Get-ItemProperty HKLM:\Software\Wow6432Node\Microsoft\Windows\Cu
 $SoftwareVersion = Get-ItemProperty HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* | Where-Object DisplayName -like "*CyberArk Digital Vault*" | Select-Object DisplayVersion | Select-Object -first 1 | Format-Table -HideTableHeaders | Out-String
 SendSyslogMessage -Message "$DateTime CEF:0|CyberArk|$MonitorType|$Version|$HostName|$ServiceName|$($status[0])|$($status[1])|$SoftwareName|$SoftwareVersion"
 
-$Services = @("PrivateArk Server","PrivateArk Database","CyberArk Logic Container","PrivateArk Remote Control Agent","Cyber-Ark Event Notification Engine")
+$Services = @("PrivateArk Database","CyberArk Logic Container","PrivateArk Remote Control Agent","Cyber-Ark Event Notification Engine")
 
 $MonitorType = "ApplicationMonitor"
 foreach ($Service in $Services) {
